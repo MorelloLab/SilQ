@@ -744,10 +744,9 @@ class MultiSinePulse(Pulse):
     def __repr__(self):
         properties_str = ''
         try:
-            properties_str = f'f_main={freq_to_str(self.frequency)}, f=['
-            for freq in self.frequencies:
-                properties_str += f'{freq_to_str(freq)},'
-            properties_str += f'], phase={self.phase} deg '
+            properties_str = f'f_LO={freq_to_str(self.frequency)}'
+            properties_str += f', f={self.frequencies} Hz'
+            properties_str += f', phase={self.phase} deg '
             properties_str += '(rel)' if self.phase_reference == 'relative' else '(abs)'
             if self.power is not None:
                 properties_str += f', power={self.power} dBm'
@@ -794,7 +793,7 @@ class MultiSinePulse(Pulse):
             waveform += amplitude * np.sin(2 * np.pi * (frequency * t + self.phase / 360))
         waveform += self.offset
         # We need to insure the waveform is limited by +- 1V:
-        waveform = waveform/np.max(waveform)
+        waveform = waveform/len(self.frequencies)
         return waveform
 
 
