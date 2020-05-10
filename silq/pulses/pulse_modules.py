@@ -619,13 +619,18 @@ class PulseSequence(ParameterNode):
     def add(self, *pulses,
             reset_duration: bool = True,
             copy: bool = True,
-            nest: bool = False):
+            nest: bool = False,
+            connect: bool = True
+            ):
         """Adds pulse(s) to the PulseSequence.
 
         Args:
             *pulses (Pulse): Pulses to add
             reset_duration: Reset duration of pulse sequence to t_stop of final
                 pulse
+            copy: Copy the pulse when adding to the pulse sequence
+            nest: Add pulse to a nested pulse sequence if it belongs there
+            connect: Connect pulse.t_start to end of previous pulse.
 
         Returns:
             List[Pulse]: Added pulses, which are copies of the original pulses.
@@ -712,12 +717,19 @@ class PulseSequence(ParameterNode):
             # the end of the last pulse on the same connection(_label)
             if pulse_copy.t_start is None and self.pulses:
                 # Find relevant pulses that share same connection(_label)
-                relevant_pulses = self.get_pulses(connection=pulse_copy.connection,
-                                                  connection_label=pulse_copy.connection_label)
+                relevant_pulses = self.get_pulses(
+                    connection=pulse_copy.connection,
+                    connection_label=pulse_copy.connection_label
+                )
                 if relevant_pulses:
-                    last_pulse = max(relevant_pulses,
-                                     key=lambda pulse: pulse.parameters['t_stop'].raw_value)
-                    last_pulse['t_stop'].connect(pulse_copy['t_start'], update=True)
+                    last_pulse = max(
+                        relevant_pulses,
+                        key=lambda pulse: pulse.parameters['t_stop'].raw_value
+                    )
+                    if connect:
+                        last_pulse['t_stop'].connect(pulse_copy['t_start'], update=True)
+                    else:
+                        pulse_copy.t_start = last_pulse.t_stop
 
             if pulse_copy.t_start is None:  # No relevant pulses found
                 pulse_copy.t_start = self.t_start
@@ -1059,11 +1071,12 @@ class PulseSequence(ParameterNode):
         else:
             return True
 
-    def get_pulses(self, enabled=True, connection=None, connection_label=None,
-                   **conditions):
+    def get_pulses(self, name=None, enabled=True, connection=None,
+                   connection_label=None, **conditions):
         """Get list of pulses in pulse sequence satisfying conditions
 
         Args:
+            name: pulse name
             enabled: Pulse must be enabled
             connection: pulse must have connection
             **conditions: Additional connection and pulse conditions.
@@ -1076,6 +1089,8 @@ class PulseSequence(ParameterNode):
         """
         pulses = self.enabled_pulses if enabled else self.pulses
         # Filter pulses by pulse conditions
+        if name is not None:
+            conditions['name'] = name
         pulse_conditions = {k: v for k, v in conditions.items()
                             if k in self.pulse_conditions and v is not None}
         pulses = [pulse for pulse in pulses if pulse.satisfies_conditions(**pulse_conditions)]
@@ -1104,10 +1119,11 @@ class PulseSequence(ParameterNode):
         pulses = sorted(pulses, key=lambda pulse: pulse.t_start)
         return pulses
 
-    def get_pulse(self, **conditions):
+    def get_pulse(self, name=None, **conditions):
         """Get unique pulse in pulse sequence satisfying conditions.
 
         Args:
+            name: Pulse name
             **conditions: Connection and pulse conditions.
 
         Returns:
@@ -1119,6 +1135,9 @@ class PulseSequence(ParameterNode):
         Raises:
             RuntimeError: No unique pulse satisfying conditions
         """
+        if name is not None:
+            conditions['name'] = name
+
         pulses = self.get_pulses(**conditions)
 
         if not pulses:
