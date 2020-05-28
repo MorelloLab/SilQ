@@ -1,9 +1,9 @@
 from functools import partial
 import numpy as np
 import logging
+from collections import Iterable, Sequence
 from pathlib import Path
 from copy import deepcopy
-from collections import Iterable, Sequence
 
 from .pulse_modules import PulseSequence
 from .pulse_types import DCPulse, SinePulse, FrequencyRampPulse, Pulse
