@@ -949,7 +949,7 @@ class FrequencyRampPulse(Pulse):
         if self.phase_reference == 'relative':
             t = t - self.t_start
 
-        return amplitude * np.sin(2 * np.pi * (frequency_start * t + frequency_rate * np.power(t,2) / 2))
+        return amplitude * np.sin(2 * np.pi * (frequency_start * t + frequency_rate * np.power(t,2) / 2 + self.phase / 360))
 
 
 class DCPulse(Pulse):
