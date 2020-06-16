@@ -322,6 +322,8 @@ class PulseSequence(ParameterNode):
             docstring="Optional flags to be passed onto instrument interfaces." \
                       "key must be the interface name, and value a dict."
         )
+        
+        self.modifiers = []
 
         # Remember last pulse of pulse sequence, to ensure t_stop of pulse sequence
         # is kept up to date via signalling
@@ -614,6 +616,9 @@ class PulseSequence(ParameterNode):
 
             # Ensure all stop times match
             self._link_pulse_sequences()
+
+        for modifier in self.modifiers:
+            modifier(self)
 
     def snapshot_base(self, update: bool=False,
                       params_to_skip_update: Sequence[str]=[]):
