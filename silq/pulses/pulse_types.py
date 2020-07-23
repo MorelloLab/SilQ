@@ -683,8 +683,8 @@ class MultiSinePulse(Pulse):
             be existent in interface. Not used if not set.
         phase_reference: What point in the the phase is with respect to.
             Can be two modes:
-            - 'absolute': phase is with respect to `Pulse.t_start`.
-            - 'relative': phase is with respect to t=0 (phase-coherent).
+            - 'absolute': phase is with respect to t=0 (phase-coherent).
+            - 'relative': phase is with respect to `Pulse.t_start`.
 
         **kwargs: Additional parameters of `Pulse`.
 
@@ -945,7 +945,8 @@ class FrequencyRampPulse(Pulse):
             t = t - self.t_start
 
         return amplitude * np.sin(2 * np.pi * (frequency_start * t + frequency_rate * np.power(t,2) / 2 +
-                                               self.phase / 360))
+                                               self.phase / 360)) + self.offset
+
 
 class DCPulse(Pulse):
     """DC (fixed-voltage) `Pulse`.

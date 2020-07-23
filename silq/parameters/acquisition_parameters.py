@@ -23,9 +23,9 @@ from silq.tools.general_tools import SettingsClass, clear_single_settings, \
 
 __all__ = ['AcquisitionParameter', 'DCParameter', 'TraceParameter',
            'DCSweepParameter', 'EPRParameter', 'ESRParameter',
-           'NMRParameter', 'EDSRParameter', 'VariableReadParameter',
-           'BlipsParameter', 'FlipNucleusParameter', 'FlipFlopParameter',
-           'NeuralNetworkParameter', 'NeuralRetuneParameter','ESRRamseyDetuningParameter']
+           'NMRParameter', 'EDSRParameter', 'VariableReadParameter', 'BlipsParameter',
+           'FlipNucleusParameter', 'FlipFlopParameter', 'NeuralNetworkParameter',
+           'NeuralRetuneParameter','ESRRamseyDetuningParameter']
 
 logger = logging.getLogger(__name__)
 h5fmt = hdf5_format.HDF5Format()
@@ -1970,7 +1970,7 @@ class EDSRParameter(NMRParameter):
     Parameter for EDSR measurements based on NMR parameter and pulse sequence
 
     Refer to NMRParameter for details. In addition to all properties copied from NMRParameter,
-    EDSRParameter has additional analysis of electron readout right after EDSR(NMR) pulse during
+    EDSRParameter includes analysis of electron readout right after EDSR(NMR) pulse during
     NMR['post_pulse'] = DCPulse('read') that needs to be present in NMRPulseSequence.
 
     Args:
@@ -2009,21 +2009,13 @@ class EDSRParameter(NMRParameter):
         """
         results = super().analyse(traces)
 
-        # Extract points for read DC pulse after EDSR pulse
-        EDSR_read_traces_name = f"{self.NMR['post_pulse'].name}"
-        EDSR_read_traces = traces[EDSR_read_traces_name]['output']
-        EDSR_trace_points = EDSR_read_traces.shape[1]
-
-        self.EDSR_traces = np.zeros((self.samples, EDSR_trace_points))
-        self.EDSR_traces = EDSR_read_traces
         EDSR_read_result = analysis.analyse_traces(
-            traces=EDSR_read_traces,
+            traces=traces[self.NMR['post_pulse'].name]['output'],
             sample_rate=self.sample_rate,
             t_read=self.t_read,
             t_skip=self.t_skip,
             threshold_voltage=self.threshold_up_proportion)
-        EDSR_up_proportion = EDSR_read_result['up_proportion']
-        results['EDSR_up_proportion'] = EDSR_up_proportion
+        results['EDSR_up_proportion'] = EDSR_read_result['up_proportion']
 
         return results
 

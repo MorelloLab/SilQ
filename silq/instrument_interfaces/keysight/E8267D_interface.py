@@ -523,7 +523,8 @@ class MultiSinePulseImplementation(PulseImplementation):
             amplitudes_Q = list(np.array(self.pulse.amplitudes)/len(self.pulse.amplitudes) +
                                 interface.Q_amplitude_correction())
             frequencies_IQ = list(np.array(self.pulse.frequencies) - interface.frequency())
-            dphases = -2*np.pi*interface.envelope_padding()*np.array(frequencies_IQ) # shift phases to start after envelope padding
+            # Shifting all phases in order to start after envelope padding:
+            dphases = -2 * np.pi * interface.envelope_padding() * np.array(frequencies_IQ)
             phases_I = list(np.array(self.pulse.phases) + dphases + interface.I_phase_correction())
             phases_Q = list(np.array(self.pulse.phases) + dphases - 90 + interface.Q_phase_correction())
 
