@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Optional
 import numpy as np
 from lmfit import Parameters, Model
 from lmfit.model import ModelResult
@@ -21,17 +21,18 @@ class Fit():
     This will find its initial parameters via `Fit.find_initial_parameters`,
     after which it will fit the data to `Fit.fit_function`.
 
-    If either xvals and ydata are passed, or only ydata is passed but is is a
+    If both xvals and ydata are passed, or only ydata is passed but it is a
     Qcodes DataArray, the fit is automatically performed.
     Otherwise Fit.perform_fit must be called.
 
     Args:
         ydata: Data values to be fitted
-        xvals: Sweep values
+        xvals: Sweep values, automatically extracted from ydata if not
+        explicitly provided and ydata is a DataArray.
         fit: Automatically perform a fit if ydata is passed
         print: Print results
-        plot: Plot data and fit
-        initial_parameters: Dict of initial guesses for fit parameters
+        plot: Axis on which to  the fit
+        initial_parameters: Dict plot of initial guesses for fit parameters
         fixed_parameters: Dict of fixed values for fit parameters
         parameter_constraints: Parameter constraints
             e.g. {'frequency' : {'min' : 0}}
@@ -43,12 +44,22 @@ class Fit():
         - The fit function can be evaluated with the fitted parameter values
           using ``fit({sweep_values})``
     """
-    plot_kwargs = {'linestyle': '--', 'color': 'cyan', 'lw': 3}
+    plot_kwargs = {'linestyle': '--', 'color': 'k', 'lw': 2}
     sweep_parameter = None
 
-    def __init__(self, ydata=None, *, xvals=None, fit=True, print=False, plot=None,
-                 initial_parameters=None, fixed_parameters=None, parameter_constraints=None,
-                 **kwargs):
+    def __init__(
+            self,
+            ydata: Union[DataArray, np.ndarray]=None,
+            *,
+            xvals: Optional[Union[DataArray, np.ndarray]] = None,
+            fit: bool = True,
+            print: bool = False,
+            plot: Optional[Axis] = None,
+            initial_parameters: Optional[dict] = None,
+            fixed_parameters: Optional[dict] = None,
+            parameter_constraints: Optional[dict] = None,
+            **kwargs
+    ):
         self.model = Model(self.fit_function, **kwargs)
         self.fit_result = None
 
@@ -60,6 +71,8 @@ class Fit():
         self.parameters = None
 
         if ydata is not None:
+            assert ydata.ndim == 1
+
             if xvals is None:
                 assert isinstance(ydata, DataArray), 'Please provide xvals'
                 xvals = ydata.set_arrays[0]
@@ -901,35 +914,26 @@ class AMSineFit(Fit):
             fft_flips) / 2)]
         frequency_idx = np.argmax(fft_flips_abs[1:]) + 1
 
-        if 'frequency' not in initial_parameters:
-            frequency = fft_freqs[frequency_idx]
-            initial_parameters['frequency'] = frequency
+        initial_parameters.setdefault('frequency', fft_freqs[frequency_idx])
+        if plot:
+            plt.figure()
+            plt.plot(fft_freqs, fft_flips_abs, 'o')
+            plt.plot(fft_freqs[frequency_idx], fft_flips_abs[frequency_idx], 'o', ms=8)
 
-            if plot:
-                plt.figure()
-                plt.plot(fft_freqs, fft_flips_abs, 'o')
-                plt.plot(frequency, fft_flips_abs[frequency_idx], 'o', ms=8)
-        if 'phase' not in initial_parameters:
-            phase = np.pi / 2 + np.angle(fft_flips[frequency_idx])
-            initial_parameters['phase'] = phase
-        if 'offset' not in initial_parameters:
-            initial_parameters['offset'] = (max(ydata) + min(ydata)) / 2
+        initial_parameters.setdefault('phase', np.pi / 2 + np.angle(fft_flips[frequency_idx]))
 
-        if 'amplitude_AM' not in initial_parameters:
-            initial_parameters['amplitude_AM'] = 0.1
+        initial_parameters.setdefault('offset', (max(ydata) + min(ydata)) / 2)
 
-        if 'frequency_AM' not in initial_parameters:
-            frequency_AM = fft_freqs[frequency_idx]
-            initial_parameters['frequency_AM'] = frequency_AM
+        initial_parameters.setdefault('amplitude_AM', 0.1)
 
-            if plot:
-                plt.figure()
-                plt.plot(fft_freqs, fft_flips_abs, 'o')
-                plt.plot(frequency_AM, fft_flips_abs[frequency_idx], 'o', ms=8)
+        initial_parameters.setdefault('frequency_AM', fft_freqs[frequency_idx])
 
-        if 'phase_AM' not in initial_parameters:
-            phase_AM = 0
-            initial_parameters['phase_AM'] = phase_AM
+        if plot:
+            plt.figure()
+            plt.plot(fft_freqs, fft_flips_abs, 'o')
+            plt.plot(fft_freqs[frequency_idx], fft_flips_abs[frequency_idx], 'o', ms=8)
+
+        initial_parameters.setdefault('phase_AM', 0)
 
         for key in initial_parameters:
             parameters.add(key, initial_parameters[key])
@@ -959,11 +963,9 @@ class ExponentialSineFit(Fit):
     def find_initial_parameters(self, xvals, ydata, initial_parameters={},
                                 plot=False):
         parameters = Parameters()
-        if 'amplitude' not in initial_parameters:
-            initial_parameters['amplitude'] = (max(ydata) - min(ydata)) / 2
+        initial_parameters.setdefault('amplitude', (max(ydata) - min(ydata)) / 2)
 
-        if 'tau' not in initial_parameters:
-            initial_parameters['tau'] = xvals[-1] / 2
+        initial_parameters.setdefault('tau', xvals[-1] / 2)
 
         dt = (xvals[1] - xvals[0])
         fft_flips = np.fft.fft(ydata)
@@ -971,22 +973,18 @@ class ExponentialSineFit(Fit):
         fft_freqs = np.fft.fftfreq(len(fft_flips), dt)[:int(len(fft_flips) / 2)]
         frequency_idx = np.argmax(fft_flips_abs[1:]) + 1
 
-        if 'frequency' not in initial_parameters:
-            frequency = fft_freqs[frequency_idx]
-            initial_parameters['frequency'] = frequency
+        initial_parameters.setdefault('frequency', fft_freqs[frequency_idx])
 
-            if plot:
-                plt.figure()
-                plt.plot(fft_freqs, fft_flips_abs)
-                plt.plot(frequency, fft_flips_abs[frequency_idx], 'o', ms=8)
-        if 'phase' not in initial_parameters:
-            phase = np.pi / 2 + np.angle(fft_flips[frequency_idx])
-            initial_parameters['phase'] = phase
-        if 'offset' not in initial_parameters:
-            initial_parameters['offset'] = (max(ydata) + min(ydata)) / 2
+        if plot:
+            plt.figure()
+            plt.plot(fft_freqs, fft_flips_abs)
+            plt.plot(fft_freqs[frequency_idx], fft_flips_abs[frequency_idx], 'o', ms=8)
 
-        if not 'exponent_factor' in initial_parameters:
-            initial_parameters['exponent_factor'] = 1
+        initial_parameters.setdefault('phase', np.pi / 2 + np.angle(fft_flips[frequency_idx]))
+
+        initial_parameters.setdefault('offset', (max(ydata) + min(ydata)) / 2)
+
+        initial_parameters.setdefault('exponent_factor', 1)
 
         for key in initial_parameters:
             parameters.add(key, initial_parameters[key])
