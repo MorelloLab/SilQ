@@ -1182,8 +1182,8 @@ def determine_threshold_up_proportion_single_state(up_proportions_arr: np.ndarra
         (i.e. at 0 or 1), to smooth a bit the threshold jumps between the measurement points,
         rounding to the 4th digit is implemented.
 
-    NOTE: algorithm generally might fail if the number of shots is less than 25 (not exact number,
-    can still be adjusted). Therefore, if less than 25 shots are given, function still uses 25 shots.
+    NOTE: algorithm generally might fail if the number of shots is less than 20 (not exact number,
+    can still be adjusted). Therefore, if less than 20 shots are given, function still uses 20 shots.
     This is due to the division of up proportion space by the number of shots and if there are too
     few points to perform kernel density estimation, it fails.
 
@@ -1199,11 +1199,11 @@ def determine_threshold_up_proportion_single_state(up_proportions_arr: np.ndarra
     """
     assert isinstance(up_proportions_arr, np.ndarray), 'Up proportions must be a 1D array, not a list.'
 
-    num_shots = max(shots_per_frequency, 25)
-    if shots_per_frequency < 25:
-        logger.warning(f'Readout shots {shots_per_frequency} < 25. This may cause issues when finding '
-                       f'an optimal threshold up proportion, thus 25 shots are used instead.')
-    # Algorithm fails if the number of shots is less than 25 (not exact number, can still be adjusted).
+    num_shots = max(shots_per_frequency, 20)
+    if shots_per_frequency < 20:
+        logger.warning(f'Readout shots {shots_per_frequency} < 20. This may cause issues when finding '
+                       f'an optimal threshold up proportion, thus 20 shots are used instead.')
+    # Algorithm fails if the number of shots is less than 20 (not exact number, can still be adjusted).
     # The reason for this is that in the following division of up_proportion space by the number of shots
     # there are too few points to perform kernel density estimation.
 
