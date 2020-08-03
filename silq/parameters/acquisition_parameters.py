@@ -344,9 +344,9 @@ class AcquisitionParameter(SettingsClass, MultiParameter):
         if t_skip is False:
             start_idx = 0
         elif t_skip is True:
-            start_idx = int(self.sample_rate * self.t_skip)
+            start_idx = int(self.sample_rate() * self.t_skip)
         else:
-            start_idx = int(self.sample_rate * t_skip)
+            start_idx = int(self.sample_rate() * t_skip)
 
         if len(channels) > 1:
             subplots = (len(plot_traces), len(channels))
@@ -359,7 +359,7 @@ class AcquisitionParameter(SettingsClass, MultiParameter):
             for channel in channels:
                 trace_arr = traces[channel]
                 pts = trace_arr.shape[-1]
-                t_list = np.linspace(0, pts / self.sample_rate, pts,
+                t_list = np.linspace(0, pts / self.sample_rate(), pts,
                                      endpoint=False)
                 if trace_arr.ndim == 2:
                     plot[k].add(traces[channel][:,start_idx:], x=t_list[start_idx:],
@@ -429,7 +429,7 @@ class PulseSequenceAcquisitionParameter(AcquisitionParameter):
 
     @property_ignore_setter
     def shapes(self):
-        trace_shapes = self.pulse_sequence.get_trace_shapes(self.sample_rate,
+        trace_shapes = self.pulse_sequence.get_trace_shapes(self.sample_rate(),
                                                             self.samples)
 
         # Tile pulses
@@ -648,7 +648,7 @@ class TraceParameter(AcquisitionParameter):
     def shapes(self):
         if self.trace_pulse in self.pulse_sequence:
             trace_shapes = self.pulse_sequence.get_trace_shapes(
-                self.layout.sample_rate, self.samples)
+                self.layout.sample_rate(), self.samples)
             trace_pulse_shape = tuple(trace_shapes[self.trace_pulse.full_name])
             if self.samples > 1 and self.average_mode == 'none':
                 return ((trace_pulse_shape,),) * len(self.layout.acquisition_channels())
@@ -668,7 +668,7 @@ class TraceParameter(AcquisitionParameter):
 
         num_traces = len(self.layout.acquisition_channels())
 
-        pts = int(round(duration * self.sample_rate))
+        pts = int(round(duration * self.sample_rate()))
         t_list = tuple(np.linspace(0, duration, pts, endpoint=True))
 
         if self.samples > 1 and self.average_mode == 'none':
@@ -859,7 +859,7 @@ class DCSweepParameter(AcquisitionParameter):
 
         if self.trace_pulse.enabled:
             # Also obtain a time trace at the end
-            points = round(self.trace_pulse.duration * self.sample_rate)
+            points = round(self.trace_pulse.duration * self.sample_rate())
             trace_setpoints = tuple(
                 np.linspace(0, self.trace_pulse.duration, points))
             setpoints += (convert_setpoints(trace_setpoints),)
@@ -898,7 +898,7 @@ class DCSweepParameter(AcquisitionParameter):
 
         if self.trace_pulse.enabled:
             shapes += (round(
-                self.trace_pulse.duration * self.sample_rate),),
+                self.trace_pulse.duration * self.sample_rate()),),
         return shapes
 
     @property_ignore_setter
@@ -1238,7 +1238,7 @@ class EPRParameter(AcquisitionParameter):
             empty_traces=traces['empty']['output'],
             plunge_traces=traces['plunge']['output'],
             read_traces=traces['read_long']['output'],
-            sample_rate=self.sample_rate,
+            sample_rate=self.sample_rate(),
             t_skip=self.t_skip,
             t_read=self.t_read,
             min_filter_proportion=self.min_filter_proportion,
@@ -1434,7 +1434,7 @@ class ESRParameter(AcquisitionParameter):
                 empty_traces=traces[self.pulse_sequence._EPR_pulses[0].full_name]['output'],
                 plunge_traces=traces[self.pulse_sequence._EPR_pulses[1].full_name]['output'],
                 read_traces=traces[self.pulse_sequence._EPR_pulses[2].full_name]['output'],
-                sample_rate=self.sample_rate,
+                sample_rate=self.sample_rate(),
                 min_filter_proportion=self.min_filter_proportion,
                 threshold_voltage=threshold_voltage,
                 filter_traces=self.filter_traces,
@@ -1452,7 +1452,7 @@ class ESRParameter(AcquisitionParameter):
             read_traces = traces[read_pulse.full_name]['output']
             ESR_results = analysis.analyse_traces(
                 traces=read_traces,
-                sample_rate=self.sample_rate,
+                sample_rate=self.sample_rate(),
                 filter='low' if self.filter_traces else None,
                 min_filter_proportion=self.min_filter_proportion,
                 threshold_voltage=threshold_voltage,
@@ -1605,7 +1605,7 @@ class T2ElectronParameter(AcquisitionParameter):
                 empty_traces=traces['empty']['output'],
                 plunge_traces=traces['plunge']['output'],
                 read_traces=traces['read_long']['output'],
-                sample_rate=self.sample_rate,
+                sample_rate=self.sample_rate(),
                 min_filter_proportion=self.min_filter_proportion,
                 threshold_voltage=threshold_voltage,
                 t_skip=self.t_skip, # Use t_skip to keep length consistent
@@ -1617,7 +1617,7 @@ class T2ElectronParameter(AcquisitionParameter):
         read_traces = traces[read_pulse.full_name]['output']
         ESR_results = analysis.analyse_traces(
             traces=read_traces,
-            sample_rate=self.sample_rate,
+            sample_rate=self.sample_rate(),
             filter='low',
             threshold_voltage=threshold_voltage,
             t_skip=self.t_skip,
@@ -1933,7 +1933,7 @@ class NMRParameter(AcquisitionParameter):
                 self.read_traces[f_idx, sample] = read_traces
                 read_result = analysis.analyse_traces(
                     traces=read_traces,
-                    sample_rate=self.sample_rate,
+                    sample_rate=self.sample_rate(),
                     t_read=self.t_read,
                     t_skip=self.t_skip,
                     threshold_voltage=threshold_voltage)
@@ -2015,7 +2015,7 @@ class EDSRParameter(NMRParameter):
 
         EDSR_read_result = analysis.analyse_traces(
             traces=traces[self.NMR['post_pulse'].name]['output'],
-            sample_rate=self.sample_rate,
+            sample_rate=self.sample_rate(),
             t_read=self.t_read,
             t_skip=self.t_skip,
             threshold_voltage=results['threshold_voltage'])
@@ -2246,7 +2246,7 @@ class BlipsParameter(AcquisitionParameter):
         return analysis.count_blips(
             traces=traces[self.pulse_name]['output'],
             t_skip=0,
-            sample_rate=self.sample_rate,
+            sample_rate=self.sample_rate(),
             threshold_voltage=self.threshold_voltage)
 
 
@@ -2577,7 +2577,7 @@ class ESRRamseyDetuningParameter(AcquisitionParameter):
                 empty_traces=traces[self.pulse_sequence._EPR_pulses[0].full_name]['output'],
                 plunge_traces=traces[self.pulse_sequence._EPR_pulses[1].full_name]['output'],
                 read_traces=traces[self.pulse_sequence._EPR_pulses[2].full_name]['output'],
-                sample_rate=self.sample_rate,
+                sample_rate=self.sample_rate(),
                 min_filter_proportion=self.min_filter_proportion,
                 threshold_voltage=threshold_voltage,
                 filter_traces=self.filter_traces,
@@ -2595,7 +2595,7 @@ class ESRRamseyDetuningParameter(AcquisitionParameter):
             read_traces = traces[read_pulse.full_name]['output']
             ESR_results = analysis.analyse_traces(
                 traces=read_traces,
-                sample_rate=self.sample_rate,
+                sample_rate=self.sample_rate(),
                 filter='low' if self.filter_traces else None,
                 min_filter_proportion=self.min_filter_proportion,
                 threshold_voltage=threshold_voltage,
