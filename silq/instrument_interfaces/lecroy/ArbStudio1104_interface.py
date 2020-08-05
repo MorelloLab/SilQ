@@ -386,8 +386,15 @@ class SinePulseImplementation(PulseImplementation):
 
                 self.pulse.frequency = original_frequency
             else:
-                periods = 50000 // points_per_period
-                waveform_points = int(periods * points_per_period)
+                total_points = self.pulse.duration * sample_rate
+                # final_points = self.final_delay * sample_rate
+                # Waveform points subtract the final waveform delay
+                waveform_points = int(round(total_points))
+
+                # All waveforms must have an even number of points
+                if waveform_points % 2:
+                    waveform_points -= 1
+
                 t_list = self.pulse.t_start + np.arange(waveform_points) / sample_rate
                 voltages = self.pulse.get_voltage(t_list)
 
