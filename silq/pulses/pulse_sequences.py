@@ -802,12 +802,6 @@ class ESRPulseSequence(PulseSequenceGenerator):
             # Generate ESR frequencies via property
             ESR_frequencies = self.ESR_frequencies
 
-        if ESR_frequencies is None and \
-                (self._latest_pulse_settings is None or
-                 self.ESR['ESR_pulse'] != self._latest_pulse_settings['ESR']['ESR_pulse']):
-            # Generate ESR frequencies via property
-            ESR_frequencies = self.ESR_frequencies
-
         if ESR_frequencies is not None:
             logger.warning("Resetting all ESR pulses to default ESR['ESR_pulse']")
             self.ESR['ESR_pulses'] = []
