@@ -65,7 +65,7 @@ class ArbStudio1104Interface(InstrumentInterface):
         # TODO check Arbstudio output TTL high voltage
 
         self.pulse_implementations = [SinePulseImplementation(
-            pulse_requirements=[('frequency', {'min': 1e2, 'max': 125e6})]),
+            pulse_requirements=[('frequency', {'min': -125e6, 'max': 125e6})]),
             MultiSinePulseImplementation(),
             FrequencyRampPulseImplementation(),
             DCPulseImplementation(),
@@ -362,7 +362,7 @@ class SinePulseImplementation(PulseImplementation):
         # assert self.pulse.frequency < min(sampling_rates[ch] for ch in channels)/2, \
         #     'Sine frequency is higher than the Nyquist limit for channels {channels}'
 
-        assert self.pulse.frequency > 0, "Pulse frequency must be larger than zero."
+        # assert self.pulse.frequency > 0, "Pulse frequency must be larger than zero."
 
         waveforms, sequences = {}, {}
         for ch in channels:
