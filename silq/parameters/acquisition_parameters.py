@@ -330,6 +330,7 @@ class AcquisitionParameter(SettingsClass, MultiParameter):
 
     def plot_traces(self, filter=None, channels=None,
                     t_skip: Union[bool, float] = True,
+                    clim=None,
                     **kwargs):
         if channels is None:
             channels = [self.channel_label]
@@ -365,8 +366,11 @@ class AcquisitionParameter(SettingsClass, MultiParameter):
                 t_list = np.linspace(0, pts / self.sample_rate, pts,
                                      endpoint=False)
                 if trace_arr.ndim == 2:
-                    plot[k].add(traces[channel][:,start_idx:], x=t_list[start_idx:],
-                                y=np.arange(trace_arr.shape[0], dtype=float))
+                    plot[k].add(
+                        traces[channel][:,start_idx:], x=t_list[start_idx:],
+                        y=np.arange(trace_arr.shape[0], dtype=float),
+                        clim=clim
+                    )
                 else:
                     plot[k].add(traces[channel][start_idx:], x=t_list[start_idx:])
                 plot[k].set_xlabel('Time (s)')
