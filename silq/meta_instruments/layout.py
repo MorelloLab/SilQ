@@ -1279,7 +1279,6 @@ class Layout(Instrument):
                     # generated during targeting
                     self._target_pulse(pulse, copy_pulse=False)
 
-
         # Finish setting up the pulse sequences
         # kwarg connect=False is added because else the pulse sequence duration
         # might be changed to that of the last pulse, while it should be fixed
@@ -1326,7 +1325,7 @@ class Layout(Instrument):
         if 'skip_start' in new_flags and new_flags['skip_start'] not in self.flags['skip_start']:
             self.flags['skip_start'].append(new_flags['skip_start'])
 
-        if 'post_start_actions' in new_flags:ex
+        if 'post_start_actions' in new_flags:
             self.flags['post_start_actions'] += new_flags['post_start_actions']
 
         if 'start_last' in new_flags and new_flags['start_last'] not in self.flags['start_last']:
@@ -1757,9 +1756,9 @@ class Layout(Instrument):
 
         # Map traces to the channel labels
         channel_mappings = dict(self.acquisition_channels())
-        traces = {channel_mappings[ch]: trace_arr
-                  for ch, trace_arr in traces_channels.items()
-                 }
+        traces = {
+            channel_mappings[ch]: trace_arr for ch, trace_arr in traces_channels.items()
+        }
         trace_shape = next(iter(traces.values())).shape
 
         # Optionally filter outputs
