@@ -1272,58 +1272,6 @@ class NMRPulseSequence(PulseSequenceGenerator):
         self._latest_pulse_settings = deepcopy(self.pulse_settings)
 
 
-class T2NuclearPulseSequence(NMRPulseSequence):
-    def __init__(self, pulses=[], **kwargs):
-        super().__init__(pulses=pulses, **kwargs)
-        self.NMR.update({
-            'NMR_initial_pulse': SinePulse('NMR_PiHalf'),
-            'NMR_refocusing_pulse': SinePulse('NMR_Pi'),
-            'NMR_final_pulse': SinePulse('NMR_PiHalf'),
-            'final_phase': 0,
-            'artificial_frequency': 0,
-            'num_refocusing': 0,
-        })
-
-        self.tau = Parameter('tau', unit='s', initial_value=1e-3)
-
-    def add_NMR_pulses(self, pulse_sequence=None):
-        self.NMR['NMR_pulses'] = [[
-            self.NMR['NMR_initial_pulse'],
-            *[self.NMR['NMR_refocusing_pulse'] for _ in range(self.NMR['num_refocusing'])],
-            self.NMR['NMR_final_pulse']
-        ]]
-
-        self.NMR['inter_delay'] = []
-        for k, (NMR_pulse, next_NMR_pulse) in enumerate(zip(
-                self.NMR['NMR_pulses'][0][:-1],
-                self.NMR['NMR_pulses'][0][1:])):
-            inter_delay = self.tau / max(self.NMR['num_refocusing'], 1)
-            if self.NMR['num_refocusing'] > 0 and (k == 0 or k == self.NMR['num_refocusing']):
-                inter_delay /= 2
-
-            inter_delay -= NMR_pulse.duration / 2
-            inter_delay -= next_NMR_pulse.duration / 2
-            if inter_delay < 0:
-                raise RuntimeError(
-                    f'NMR inter_delay {inter_delay} is shorter than NMR pulse duration'
-                )
-            self.NMR['inter_delay'].append(inter_delay)
-
-        # Calculate phase of final pulse
-        final_phase = self.NMR['final_phase']
-        final_phase += 360 * self.tau * self.NMR['artificial_frequency']
-        final_phase = round(final_phase % 360)
-        self.NMR['NMR_pulses'][0][-1].phase = final_phase
-
-        super().add_NMR_pulses(pulse_sequence=pulse_sequence)
-
-    @parameter
-    def tau_set(self, parameter, val):
-        parameter._latest['value'] = val
-        parameter._latest['raw_value'] = val
-        self.generate()
-
-
 class NMRCPMGPulseSequence(NMRPulseSequence):
     """`PulseSequenceGenerator` for nuclear magnetic resonance (NMR).
 
@@ -1671,6 +1619,82 @@ class FlipFlopPulseSequence(PulseSequenceGenerator):
         self.add_ESR_pulses()
 
         self.add(*self.pulse_settings['post_pulses'])
+
+
+class CircuitPulseSequence(ElectronReadoutPulseSequence):
+    def __init__(self, name='circuit', circuits_file=None, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.settings["pulses"] = {}
+
+        self.circuit_index = Parameter(vals=vals.Ints(), parent=False)
+        self.circuit = Parameter(vals=vals.Strings())
+        self.circuits = Parameter(
+            vals=vals.Lists(vals.Strings()), set_cmd=None, initial_value=[]
+        )
+
+        self.circuits_file = Parameter(initial_value=circuits_file, set_cmd=None)
+        self.circuits_folder = Parameter(
+            config_link='properties.circuits_folder', set_cmd=None
+        )
+
+    @parameter
+    def circuit_index_set(self, parameter, idx):
+        self.circuit = self.circuits[idx]
+
+    @parameter
+    def circuit_set(self, parameter, circuit):
+        # Update current value of circuit
+        parameter._latest["raw_value"] = parameter._latest["value"] = circuit
+
+        gates = convert_circuit(circuit, target_type=list)
+
+        unknown_gates = [gate for gate in gates if gate not in self.settings.pulses]
+        if unknown_gates:
+            raise RuntimeError(
+                f'The following pulses are not registered in '
+                f'CircuitPulseSequence.settings.pulses: {unknown_gates}'
+            )
+
+        self.settings.RF_pulses = [[self.settings.pulses[gate] for gate in gates]]
+
+        self.generate()
+
+    def load_circuits(self, filepath):
+        if not isinstance(filepath, Path):
+            filepath = Path(filepath)
+
+        if not filepath.exists():
+            if self.circuits_folder is None:
+                raise RuntimeError(f'Could not find filepath at {filepath}')
+
+            filepath = Path(self.circuits_folder) / filepath
+
+        if not filepath.exists():
+            raise RuntimeError(f'Could not find filepath at {filepath}')
+
+        self.circuits = load_circuits(filepath, target_type=str)
+
+        return self.circuits
+
+    def save_circuits(self, filepath, name='circuits.txt'):
+
+        if isinstance(filepath, Measurement):
+            filepath = filepath.dataset.filepath
+        elif isinstance(filepath, DataSet):
+            filepath = filepath.filepath
+
+        filepath = Path(filepath)
+
+        if filepath.is_dir():
+            filepath = filepath / name
+
+        with filepath.open('w') as f:
+            f.write('\n'.join(self.circuits))
+
+        return filepath
+
+    def save(self, filepath):
+        return self.save_circuits(filepath)
 
 
 class NMRCircuitPulseSequence(NMRPulseSequenceComposite):
