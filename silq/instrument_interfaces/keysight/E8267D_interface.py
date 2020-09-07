@@ -4,7 +4,8 @@ import numpy as np
 
 from silq.instrument_interfaces import InstrumentInterface, Channel
 from silq.pulses import Pulse, DCPulse, DCRampPulse, SinePulse, \
-    MultiSinePulse, FrequencyRampPulse, MarkerPulse, PulseImplementation
+    MultiSinePulse, SingleWaveformMultiSinePulse, FrequencyRampPulse, \
+    MarkerPulse, PulseImplementation
 
 from qcodes.utils import validators as vals
 
@@ -63,6 +64,9 @@ class E8267DInterface(InstrumentInterface):
                 pulse_requirements=[('frequency', {'min': 250e3, 'max': 44e9})]
             ),
             MultiSinePulseImplementation(),
+            SingleWaveformMultiSinePulseImplementation(
+                pulse_requirements=[('frequency', {'min': 250e3, 'max': 44e9})]
+            ),
             FrequencyRampPulseImplementation(
                 pulse_requirements=[
                     ('frequency_start', {'min': 250e3, 'max': 44e9}),
@@ -590,6 +594,51 @@ class MultiSinePulseImplementation(PulseImplementation):
                            phase_reference=self.pulse.phase_reference,
                            offset=self.pulse.offset,
                            connection_requirements={
-                               'input_instrument': interface.instrument_name(),
-                               'input_channel': 'Q'})])
+                                   'input_instrument': interface.instrument_name(),
+                                   'input_channel': 'Q'})])
+        return additional_pulses
+
+
+class SingleWaveformMultiSinePulseImplementation(PulseImplementation):
+    pulse_class = SingleWaveformMultiSinePulse
+
+    def target_pulse(self, pulse, interface, **kwargs):
+        assert pulse.power is not None, "Pulse must have power defined"
+        return super().target_pulse(pulse, interface, **kwargs)
+
+    def get_additional_pulses(self, interface: InstrumentInterface):
+        # Add an envelope pulse
+        additional_pulses = [
+            MarkerPulse(t_start=self.pulse.t_start, t_stop=self.pulse.t_stop,
+                        amplitude=interface.marker_amplitude(),
+                        connection_requirements={
+                            'input_instrument': interface.instrument_name(),
+                            'input_channel': 'trig_in'})]
+
+        assert (interface.IQ_modulation() == 'on') and \
+               (interface.FM_mode() == 'IQ'), 'FM_mode should be IQ and IQ_modulation should be ON ' \
+                                              'for SingleWaveformMultiSinePulse.'
+
+        frequency_IQ = self.pulse.frequency - interface.frequency()
+
+        assert frequency_IQ == 0, 'Carrier and pulse frequencies are not equal. This case is not yet' \
+                                  'implemented for SingleWaveformMultiSinePulse.'
+        phases_IQ = {
+            'I': self.pulse.phases,
+            'Q': self.pulse.phases - 90
+        }
+        for quadrature, phases in phases_IQ.items():
+            additional_pulses.append(
+                SingleWaveformMultiSinePulse(name=f'sideband_{quadrature}',
+                                             t_start=self.pulse.t_start,
+                                             t_stop=self.pulse.t_stop,
+                                             frequency=0,
+                                             phases=phases,
+                                             durations=self.pulse.durations,
+                                             connection_requirements={
+                                                 'input_instrument': interface.instrument_name(),
+                                                 'input_channel': quadrature}
+                                             )
+            )
+
         return additional_pulses
