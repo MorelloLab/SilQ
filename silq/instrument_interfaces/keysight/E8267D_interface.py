@@ -455,7 +455,7 @@ class FrequencyRampPulseImplementation(PulseImplementation):
                               t_stop=self.pulse.t_stop + interface.envelope_padding(),
                               frequency=frequency_IQ,
                               amplitude=1 + interface.I_amplitude_correction(),
-                              phase=0 + interface.I_phase_correction(),
+                              phase=self.pulse.phase + interface.I_phase_correction(),
                               phase_reference=self.pulse.phase_reference,
                               offset=self.pulse.offset,
                               connection_requirements={
@@ -465,7 +465,7 @@ class FrequencyRampPulseImplementation(PulseImplementation):
                               t_start=self.pulse.t_start - interface.envelope_padding(),
                               t_stop=self.pulse.t_stop + interface.envelope_padding(),
                               frequency=frequency_IQ,
-                              phase=-90 + interface.Q_phase_correction(),
+                              phase=self.pulse.phase - 90 + interface.Q_phase_correction(),
                               phase_reference=self.pulse.phase_reference,
                               offset=self.pulse.offset,
                               amplitude=1 + interface.Q_amplitude_correction(),
@@ -480,7 +480,7 @@ class FrequencyRampPulseImplementation(PulseImplementation):
                                        frequency_start=frequency_IQ_start,
                                        frequency_stop=frequency_IQ_stop,
                                        amplitude=1 + interface.I_amplitude_correction(),
-                                       phase=0 + interface.I_phase_correction(),
+                                       phase=self.pulse.phase + interface.I_phase_correction(),
                                        phase_reference=self.pulse.phase_reference,
                                        offset=self.pulse.offset,
                                        connection_requirements={
@@ -492,7 +492,7 @@ class FrequencyRampPulseImplementation(PulseImplementation):
                                        frequency_start=frequency_IQ_start,
                                        frequency_stop=frequency_IQ_stop,
                                        amplitude=1 + interface.Q_amplitude_correction(),
-                                       phase=-90 + interface.Q_phase_correction(),
+                                       phase=self.pulse.phase - 90 + interface.Q_phase_correction(),
                                        phase_reference=self.pulse.phase_reference,
                                        offset=self.pulse.offset,
                                        connection_requirements={
