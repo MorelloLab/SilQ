@@ -455,8 +455,8 @@ class SinePulseImplementation(PulseImplementation):
 
                 self.pulse.frequency = original_frequency
             else:
-                total_points = self.pulse.duration * sampling_rates[ch]
-                final_points = self.final_delay * sampling_rates[ch]
+                total_points = self.pulse.duration * sample_rate
+                final_points = self.final_delay * sample_rate
                 # Waveform points subtract the final waveform delay
                 waveform_points = int(round(total_points - final_points))
 
@@ -464,7 +464,7 @@ class SinePulseImplementation(PulseImplementation):
                 if waveform_points % 2:
                     waveform_points -= 1
 
-                t_list = self.pulse.t_start + np.arange(waveform_points) / sampling_rates[ch]
+                t_list = self.pulse.t_start + np.arange(waveform_points) / sample_rate
                 voltages = self.pulse.get_voltage(t_list)
 
             waveforms[ch] = [voltages]
