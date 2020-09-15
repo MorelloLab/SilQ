@@ -332,6 +332,17 @@ class AcquisitionParameter(SettingsClass, MultiParameter):
                     t_skip: Union[bool, float] = True,
                     clim=None,
                     **kwargs):
+        """Plot acquisition traces for pulses that have pulse.acquire
+
+        Args:
+            filter: Optional filter for pulse names. Can be string or list of strings
+            t_skip: Skip initial part of pulse traces (the part that is skipped when analysing blips).
+            clim: Colorbar limits
+            **kwargS: Additional kwargs sent to instantiated MatPlot object
+
+        Returns:
+            MatPlot object
+        """
         if channels is None:
             channels = [self.channel_label]
 
