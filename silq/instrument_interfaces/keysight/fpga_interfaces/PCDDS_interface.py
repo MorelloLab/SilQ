@@ -1,8 +1,12 @@
 from typing import Any, Dict, List
-from copy import copy
+import logging
+
 from silq.instrument_interfaces import InstrumentInterface, Channel
 from silq.pulses import Pulse, DCPulse, SinePulse, FrequencyRampPulse, \
     TriggerPulse, PulseImplementation, MarkerPulse
+
+
+logger = logging.getLogger(__name__)
 
 
 class PCDDSInterface(InstrumentInterface):
@@ -63,14 +67,47 @@ class PCDDSInterface(InstrumentInterface):
         """
         assert self.use_trig_in(), "Interface not yet programmed for pxi triggering"
         # Get list of unique pulse start and stop times
-        t_list = self.pulse_sequence.t_list
-        trigger_pulses = [TriggerPulse(t_start=t,
-                                       duration=self.trigger_in_duration(),
-                                       connection_requirements={
-                                           'input_instrument': self.instrument.name,
-                                           'input_channel': self._input_channels['trig_in']
-                                       })
-                          for t in t_list if t != self.pulse_sequence.duration]
+        # t_list = self.pulse_sequence.t_list
+        trigger_pulses = []
+        t_list = []
+        for ch_id in self.active_channel_ids:
+            channel_pulses = self.pulse_sequence.get_pulses(output_channel=f'ch{ch_id}')
+
+            auto_advance = False
+            for pulse in channel_pulses:
+                if pulse.t_start not in t_list and not auto_advance:
+                    t_list.append(pulse.t_start)
+                    trigger_pulses.append(
+                        TriggerPulse(t_start=pulse.t_start,
+                            duration=self.trigger_in_duration(),
+                            connection_requirements={
+                                'input_instrument': self.instrument.name,
+                                'input_channel': self._input_channels['trig_in']
+                            })
+                    )
+
+                auto_advance =  getattr(pulse, 'auto_advance', False)
+                if pulse.t_stop not in t_list and not auto_advance:
+                    if pulse.t_stop < self.pulse_sequence.duration:
+                        t_list.append(pulse.t_stop)
+                        trigger_pulses.append(
+                            TriggerPulse(t_start=pulse.t_stop,
+                                duration=self.trigger_in_duration(),
+                                connection_requirements={
+                                    'input_instrument': self.instrument.name,
+                                    'input_channel': self._input_channels['trig_in']
+                                })
+                        )
+                elif auto_advance and pulse.t_stop >= self.pulse_sequence.duration:
+                    logger.warning('Setting final pulse.auto_advance = False')
+                    pulse.auto_advance = False
+
+        # Ensure there are no triggers within auto-advancing pulses
+        for pulse in self.pulse_sequence:
+            if not getattr(pulse, 'auto_advance', False):
+                continue
+            assert all(not (pulse.t_start < p.t_start <= pulse.t_stop) for p in trigger_pulses)
+
         return trigger_pulses
 
     def setup(self, **kwargs):
@@ -139,17 +176,52 @@ class PCDDSInterface(InstrumentInterface):
 class DCPulseImplementation(PulseImplementation):
     pulse_class = DCPulse
 
+    def get_additional_pulses(self, interface, t_list):
+        trigger_pulses = []
+        if self.pulse.t_start not in t_list:
+            trigger_pulses.append(
+                TriggerPulse(t_start=self.pulse.t_start,
+                    duration=self.trigger_in_duration(),
+                    connection_requirements={
+                        'input_instrument': self.instrument.name,
+                        'input_channel': self._input_channels['trig_in']
+                    })
+            )
+        if self.pulse.t_stop not in t_list:
+            trigger_pulses.append(
+                TriggerPulse(t_start=self.pulse.t_stop,
+                    duration=self.trigger_in_duration(),
+                    connection_requirements={
+                        'input_instrument': self.instrument.name,
+                        'input_channel': self._input_channels['trig_in']
+                    })
+            )
+        return trigger_pulses
+
     def implement(self, *args, **kwargs):
-        return {'instr': 'dc',
-                'amp': self.pulse.amplitude}
+        instruction = {
+            'instr': 'dc',
+            'amp': self.pulse.amplitude,
+        }
+        if getattr(self.pulse, 'auto_advance', False):
+            instruction['duration'] = self.pulse.duration
+
+        return instruction
 
 
 class MarkerPulseImplementation(PulseImplementation):
     pulse_class = MarkerPulse
 
     def implement(self, *args, **kwargs):
-        return {'instr': 'dc',
-                'amp': self.pulse.amplitude}
+        instruction = {
+            'instr': 'dc',
+            'amp': self.pulse.amplitude
+        }
+
+        if getattr(self.pulse, 'auto_advance', False):
+            instruction['duration'] = self.pulse.duration
+
+        return instruction
 
 
 class SinePulseImplementation(PulseImplementation):
@@ -159,12 +231,18 @@ class SinePulseImplementation(PulseImplementation):
         # TODO distinguish between abolute / relative phase
         phase = self.pulse.phase
 
-        return {'instr': 'sine',
-                'freq': self.pulse.frequency,
-                'amp': self.pulse.amplitude,
-                'offset': self.pulse.offset,
-                'phase': phase
-                }
+        instruction = {
+            'instr': 'sine',
+            'freq': self.pulse.frequency,
+            'amp': self.pulse.amplitude,
+            'offset': self.pulse.offset,
+            'phase': phase
+        }
+
+        if getattr(self.pulse, 'auto_advance', False):
+            instruction['duration'] = self.pulse.duration
+
+        return instruction
 
 
 class FrequencyRampPulseImplementation(PulseImplementation):
@@ -173,10 +251,16 @@ class FrequencyRampPulseImplementation(PulseImplementation):
     def implement(self, *args, **kwargs):
         accumulation = (self.pulse.frequency_stop -
                         self.pulse.frequency_start) / self.pulse.duration
-        return {'instr': 'chirp',
-                'freq': self.pulse.frequency_start,
-                'amp': self.pulse.amplitude,
-                'offset': self.pulse.offset,
-                'phase': getattr(self.pulse, 'phase', 0),
-                'accum': accumulation
-                }
+        instruction = {
+            'instr': 'chirp',
+            'freq': self.pulse.frequency_start,
+            'amp': self.pulse.amplitude,
+            'offset': self.pulse.offset,
+            'phase': getattr(self.pulse, 'phase', 0),
+            'accum': accumulation
+        }
+
+        if getattr(self.pulse, 'auto_advance', False):
+            instruction['duration'] = self.pulse.duration
+
+        return instruction
