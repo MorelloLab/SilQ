@@ -568,9 +568,9 @@ class PulseSequence(ParameterNode):
             # Clear stored values of pulses
             for key in backup:
                 if key.startswith('my_'):
-                    self.parameters[key]._latest = {'value': [], 'raw_value': []}
+                    self.parameters[key]._latest = {'value': [], 'raw_value': [], 'ts': None}
                 else:
-                    self.parameters[key]._latest = {'value': (), 'raw_value': ()}
+                    self.parameters[key]._latest = {'value': (), 'raw_value': (), 'ts': None}
 
             self_copy = super().__copy__()
         finally:
@@ -700,7 +700,7 @@ class PulseSequence(ParameterNode):
         if pulses_no_duration:
             raise ValueError(
                 'Please specify pulse duration in silq.config.pulses for the '
-                'following pulses: ' ', '.join(p.name for p in pulses_no_duration)
+                'following pulses: ' + ', '.join(p.name for p in pulses_no_duration)
             )
 
         if copy:
@@ -1101,7 +1101,7 @@ class PulseSequence(ParameterNode):
         self.my_enabled_pulses.clear()
         self.my_disabled_pulses.clear()
         if clear_pulse_sequences:
-            self['pulse_sequences']._latest = {'value': (), 'raw_value': ()}
+            self['pulse_sequences']._latest = {'value': (), 'raw_value': (), 'ts': None}
 
         self.duration = None  # Reset duration to t_stop of last pulse
 
