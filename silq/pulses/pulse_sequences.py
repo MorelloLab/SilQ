@@ -49,17 +49,40 @@ class PulseSequenceGenerator(PulseSequence):
 
 
 class ElectronReadoutPulseSequence(PulseSequenceGenerator):
-    """`PulseSequenceGenerator` for electron spin resonance (ESR).
+    """`PulseSequenceGenerator` for a general electron readout
 
-    This pulse sequence can handle many of the basic pulse sequences involving
-    ESR. The pulse sequence is generated from its pulse settings attributes.
+    This pulse sequence can handle nearly all of the basic pulse sequencing
+    involving ESR / NMR.
+    More specific pulse sequences, such as The `ESRPulseSequenceComposite` and
+    `NMRPulseSequenceComposite` are composed by nesting multiple
+    `ElectronReadoutPulseSequence`. The `ElectronReadoutPulseSequence` can
+    therefore be seen as a building block for more complicated sequences.
 
-    In general the pulse sequence is as follows:
+    The basic pulse sequence scheme is as follows:
 
-    1. Perform any pre_pulses defined in ``ESRPulseSequence.pre_pulses``.
-    2. Perform stage pulse ``ESRPulseSequence.ESR['stage_pulse']``.
+    1. Perform stage pulse ``ElectronReadoutPulseSequence.settings.stage_pulse``.
+       By default the stage pulse is a ``plunge`` pulse.
+    2. Perform RF pulse(s) within the stage pulse, as defined in the list
+       ``ElectronReadoutPulseSequence.settings.RF_pulses``. More on this later.
+    3. Perform read pulse, defined in ``ElectronReadoutPulseSequence.settings.read_pulse``.
+
+    This basic scheme can be extended in several ways, the relevant settings are
+    grouped together in ``ElectronReadoutPulseSequence.settings``.
+
+    The primary
+
+    The basic pulse sequence is as follows:
+
+
+    2. Perform a stage pulse, RF pulse(s) within the stage pulse, and then a read pulse.
+       By default the stage pulse is a ``plunge`` pulse.
+
+    2. Perform stage pulse ``ElectronReadoutPulseSequence.settings.stage_pulse``.
        By default, this is the ``plunge`` pulse.
-    3. Perform ESR pulse within plunge pulse, the delay from start of plunge
+    3. Perform RF pulse(s) within plunge pulse, as defined in the list
+       ``ElectronReadoutPulseSequence.settings.RF_pulses``.
+       Each element in ``RF_pulses``  has its own ``stage`` pulse and ``read`` pulse
+       the delay from start of plunge
        pulse is defined in ``ESRPulseSequence.ESR['pulse_delay']``.
     4. Perform read pulse ``ESRPulseSequence.ESR['read_pulse']``.
     5. Repeat steps 2 and 3 for each ESR pulse in
@@ -123,23 +146,24 @@ class ElectronReadoutPulseSequence(PulseSequenceGenerator):
         For given pulse settings, `ESRPulseSequence.generate` will recreate the
         pulse sequence from settings.
 """
+    pulse_settings = DotDict({
+        'RF_pulse': SinePulse('ESR'),
+        'stage_pulse': DCPulse('plunge'),
+        'transition_pulse': None,
+        'read_pulse': DCPulse('read_initialize', acquire=True),  # Can be set to None
+        'pre_delay': 5e-3,
+        'inter_delay': 5e-3,
+        'post_delay': 5e-3,
+        'min_duration': None,
+        'RF_pulses': ['RF_pulse'],
+        'pre_pulses': (),
+        'post_pulses': (),
+        'shots_per_frequency': 1
+    })
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.pulse_settings = DotDict({
-            'RF_pulse': SinePulse('ESR'),
-            'stage_pulse': DCPulse('plunge'),
-            'transition_pulse': None,
-            'read_pulse': DCPulse('read_initialize', acquire=True),  # Can be set to None
-            'pre_delay': 5e-3,
-            'inter_delay': 5e-3,
-            'post_delay': 5e-3,
-            'min_duration': None,
-            'RF_pulses': ['RF_pulse'],
-            'pre_pulses': (),
-            'post_pulses': (),
-            'shots_per_frequency': 1
-        })
+        self.pulse_settings = deepcopy(ElectronReadoutPulseSequence.pulse_settings)
 
         self.frequencies = Parameter()
 
@@ -321,6 +345,7 @@ class ElectronReadoutPulseSequence(PulseSequenceGenerator):
         pulses_add = []
         for pulse in RF_pulse_sequence:
             pulse_copy = deepcopy(pulse)
+            pulse_copy.parent = self
             connect_parameter.connect(pulse_copy['t_start'], offset=pulse.t_start)
             pulses_add.append(pulse_copy)
 
@@ -358,7 +383,6 @@ class ElectronReadoutPulseSequence(PulseSequenceGenerator):
 
         # Add pre_pulses
         self.add(*self.pulse_settings['pre_pulses'])
-
         # Update self.pulse_settings['RF_pulses']. Converts any pulses that are
         # strings to actual pulses, and sets correct frequencies
         for _ in range(self.pulse_settings['shots_per_frequency']):
