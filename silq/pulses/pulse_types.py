@@ -1159,7 +1159,7 @@ class TriggerPulse(Pulse):
         **kwargs: Additional parameters of `Pulse`.
 
     """
-    default_duration = 100e-9
+    default_duration = 200e-9
     default_amplitude = 1.0
 
     def __init__(self,

@@ -1669,9 +1669,16 @@ class CircuitPulseSequence(ElectronReadoutPulseSequence):
                 f'CircuitPulseSequence.settings.pulses: {unknown_gates}'
             )
 
-        self.settings.RF_pulses = [[self.settings.pulses[gate] for gate in gates]]
+        self.settings.RF_pulses = [[self.str_to_gate(gate) for gate in gates]]
 
         self.generate()
+
+    def str_to_gate(self, gate_str):
+        """Converts gate string representation to gate using self.settings.pulses
+
+        Can be overridden for more complex pulse retrieval routines
+        """
+        return self.settings.pulses[gate_str]
 
     def load_circuits(self, filepath):
         if not isinstance(filepath, Path):
@@ -1738,18 +1745,16 @@ class NMRCircuitPulseSequence(NMRPulseSequenceComposite):
 
         gates = convert_circuit(circuit, target_type=list)
 
-        unknown_gates = [gate for gate in gates if gate not in self.NMR.settings['pulses']]
-        if unknown_gates:
-            raise RuntimeError(
-                f'The following pulses are not registered in '
-                f'NMRCircuitPulseSequence.NMR.settings["pulses"]: {unknown_gates}'
-            )
-
-        self.NMR.pulse_settings["RF_pulses"] = [[
-            self.NMR.settings['pulses'][gate] for gate in gates
-        ]]
+        self.NMR.pulse_settings["RF_pulses"] = [[self.str_to_gate(gate) for gate in gates]]
 
         self.generate()
+
+    def str_to_gate(self, gate_str):
+        """Converts gate string representation to gate using self.settings.pulses
+
+        Can be overridden for more complex pulse retrieval routines
+        """
+        return self.settings.pulses[gate_str]
 
     def load_circuits(self, filepath):
 
